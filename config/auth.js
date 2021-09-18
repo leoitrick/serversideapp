@@ -1,6 +1,7 @@
 const LocalStrategy = require("passport-local").Strategy;
 const passport = require("passport");
 const User = require("../models/User");
+const bcrypt = require("bcryptjs");
 
 module.exports = (passport) => {
   passport.serializeUser((user, next) => {
@@ -31,7 +32,7 @@ module.exports = (passport) => {
         }
 
         // handle password verification
-        if (user.password != req.body.password) {
+        if (bcrypt.compareSync(password, user.password) == false) {
           return next(new Error("Incorrect Password"));
         }
 
@@ -41,4 +42,36 @@ module.exports = (passport) => {
   );
 
   passport.use("localLogin", localLogin);
+
+  const localRegister = new LocalStrategy(
+    {
+      usernameField: "email",
+      passwordField: "password",
+      passReqToCallback: true,
+    },
+    (req, email, password, next) => {
+      User.findOne({ email: email }, (err, user) => {
+        if (err) {
+          return next(err);
+        }
+
+        // check if user exists
+        if (user != null) {
+          return next(new Error("User already exists! Please log in"));
+        }
+
+        //Create new user
+
+        //encrypting the password
+        const hashedPw = bcrypt.hashSync(password, 10);
+        User.create({ email: email, password: hashedPw }, (err, user) => {
+          if (err) {
+            return next(err);
+          }
+          next(null, user);
+        });
+      });
+    }
+  );
+  passport.use("localRegister", localRegister);
 };
